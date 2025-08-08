@@ -1,0 +1,56 @@
+----------------------------------- REST API -----------------------------------
+Receive requests from a client and respond with data
+This particular API will:
+    Create stores, each with a name and a list of stocked items
+    Create items within a store, each with a name and price
+    Given a store name, we can locate the individual store and all its items
+    Given a store name we can locate all the items it has stocked 
+    Be able to create stores into the database
+    Be able to create items 
+    And much more 
+
+----------------------------------- Initial Flask Setup -----------------------------------
+To create a virtual environment, run 
+    python3.10 -m venv .venv 
+Then tell VS Code which virtual environment to use, by typing:
+    cmd + shift + P 
+    Python: Select Interpreter
+    Select Python3.10.6 
+    Restart your terminal 
+The above works when working in the terminal in VS Code
+To have the same effect in your terminal, type
+    ls .venv/bin/activate
+    source .venv/bin/activate
+
+Create 
+    app.py 
+And inside it, place:
+    from flask import Flask 
+    app = Flask(__name__)
+The latter line will be at the end of the code when all other lines are integrated
+This now creates a Flask application
+Now, any endpoints defined in the application will be available when we run the application
+We run the application by typing
+    flask run 
+Which generates the following message:
+    * Debug mode: off
+    WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+    * Running on http://127.0.0.1:5000
+    Press CTRL+C to quit
+The terminal looks for a file called app.py, and a variable called app 
+The warning message is telling us we should not use flask when deploying the application
+It shows us that the app is being run locally from http://127.0.0.1:5000 which is port 5000
+
+----------------------------------- JSON -----------------------------------
+REST API's usually work with JSON data
+It is a large string of data 
+It is similar to a Python Dictionary, with Key-Value pairs 
+We can select to have it either prettified or not.
+The latter is the go-to option as it gives less data to transfer 
+It is the data with which clients and servers interact with 
+
+----------------------------------- How To Interact with and Test API's -----------------------------------
+We will make use of the application called Insomnia
+To use it make sure the FLASK application is running 
+
+
