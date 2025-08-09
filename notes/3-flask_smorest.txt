@@ -1,0 +1,75 @@
+----------------------------------- Schemas -----------------------------------
+Schemas define how to:
+    1. Serialise Python Objects (JSON or otherwise)
+    2. Deserialise
+    3. Validate input data before passing it to your logic or database
+So in our schemas.py file:
+    from marshmallow import Schema, fields
+    class ItemSchema(Schema):
+        id = fields.Str(dump_only=True)
+        name = fields.Str(required=True)
+        price = fields.Float(required=True)
+        store_id = fields.Str(required=True)
+    class ItemUpdateSchema(Schema):
+        price = fields.Float()
+        name = fields.Str()
+This sets the validation for our item class, as ItemSchema states items:
+    id is read only, and it will be included when serializing (i.e., when converting your Python object into JSON to send to the client).
+    need to have a name
+    need to have a price
+    need to have a store_id
+And ItemUpdateSchema states:
+    we do not need to have either a price or name (ie only one really needs to be changed)
+    there is no change to the id 
+
+----------------------------------- Resources -----------------------------------
+We create a resources folder to handle our logic when:
+    GETting
+    POSTing
+    DELETEing
+    PUTting
+For example if we look at items:
+    import uuid
+    from flask import request
+    from flask.views import MethodView
+    from flask_smorest import Blueprint, abort
+    from db import items, stores
+
+    from schemas import ItemSchema
+    from schemas import ItemUpdateSchema
+
+    blp = Blueprint("Items", __name__, description="Operations on items")
+
+    @blp.route("/item/<string:item_id>")
+    class Item(MethodView):
+        @blp.response(200, ItemSchema)
+        def get(self, item_id):
+            try:
+                return items[item_id]
+            except KeyError:
+                abort(404, message="Item not found.")
+
+        @blp.arguments(ItemUpdateSchema)
+        @blp.response(200, ItemSchema)     # put response decorator AFTER arguments
+        def put(self, item_data, item_id):
+            try:
+                item = items[item_id]
+                item |= item_data.         # this is an update dict sign (|=)
+                return item
+            except KeyError:
+                abort(404, message="Item not found")
+
+    @blp.route("/item")
+    class ItemList(MethodView):
+        @blp.response(200, ItemSchema(many=True)) # this handles a list of items
+        def get(self):
+            return items.values()
+
+Here:
+    MethodView is a class provided by Flask (specifically flask.views.MethodView) that allows you to define HTTP methods (GET, POST, PUT, DELETE, etc.) as separate methods inside a class
+And lines such as:
+    @blp.response(200, ItemSchema)
+        def get(self, item_id):
+Mean that item_id is representing ItemSchema which ensures proper validation.
+
+

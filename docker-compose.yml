@@ -1,0 +1,19 @@
+# yml files use key value-pairs that are marked by indentation
+
+
+services: 
+  # define properties identified with services. it's name is web
+  web: 
+    # this build means the build file is in the current directory (Dockerfile)
+    build: .
+    # map port 5000 in our local machine to port 5000 in the container (local machine first)
+    ports:
+      - "5001:5000"
+    # pass current directory and map it to /app in the container
+    volumes:
+      - .:/app
+
+# then in terminal run:
+  # docker compose up
+# this builds our image, starts the container and gives us our logs
+# ctrl+c stops

@@ -1,1 +1,52 @@
 ----------------------------------- Docker Containers and Images -----------------------------------
+Docker Containers   
+    Usually run on a Linux System 
+    Each container uses the existing operating system, and is run as a process within that OS
+    Each container has its own storage and OS 
+
+Operating System (OS)
+    Is made up of 2 parts:
+        1. KERNEL => usually interacts with controls and hardware
+        2. FILES
+
+We do not develop locally with MAC OS Containers, we always use Linux 
+To do this, we use  
+    Docker Desktop 
+Which is somewhat inefficient, but is good for local work. 
+
+Docker Containers will run everything except the Kernel 
+They're based on IMAGES which specify what is run inside the container when it is running. 
+
+Docker Images 
+    A snapshot of source code, libraries, tools etc except the OS Kernel 
+    There are many pre-built images, so we don't need to build from scratch.
+
+----------------------------------- Docker Desktop -----------------------------------
+We use them to create Images
+When an Image is created, we can run a Container. 
+
+----------------------------------- Dockerfile -----------------------------------
+We create this file in our main directory. 
+It will take the shape of:
+    FROM python:3.10 
+    EXPOSE 5000                                  # this states which port to run on
+    WORKDIR /app                                 # this allows us to put app.py into the Docker Img
+    COPY requirements.txt                        # this copies requirements to the file
+    RUN pip install -r requirements.txt          # this installs our dependancies
+    COPY . .                                     # this copies everything into the app.py directory
+    CMD ["flask", "run", "--host", "0.0.0.0"].   # this is what the command runs when the image starts up as a container
+When we run this, we should see the Image in our Docker Desktop. 
+
+----------------------------------- Docker Compose -----------------------------------
+We create a file called
+    docker-compose.yml 
+The purpose of this file is that it allows us to start multiple containers at the same time.
+It is the default name that docker compose looks for, for configuration 
+As it is a .yml file, its structure is based on indentation
+    services:
+        web:                                     # this defines properties identified with services
+            build: .                             # this means the build file is in the current directory (Dockerfile)
+            ports:                               # we do port-routing from 5000 to 5001
+                - "5001:5000"
+            volumes:                             # we pass current directory and map it to /app in the container
+                - .:/app 

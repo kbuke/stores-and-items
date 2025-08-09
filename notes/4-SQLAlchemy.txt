@@ -1,0 +1,145 @@
+----------------------------------- SQLAlchemy -----------------------------------
+Use SQLAlchemy to create proper databases
+It is similar to SQL but has benefits such as:
+    ORM
+    Handle creating tables
+    Database migration easier
+    Code is shorter and cleaner
+
+Add:
+    sqlalchemy
+    flask-sqlalchemy 
+To our requirements.txt
+Then run
+    pip install -r requirements.txt 
+This will run again in Dockerfile 
+
+----------------------------------- SQLAlchemy Model -----------------------------------
+Go to db.py and enter:
+    from flask_sqlalchemy import SQLAlchemy
+    db = SQLAlchemy()
+This creates an SQLAlchemy object which can be linked to our flask app later
+
+Create a models folder and create:
+    item.py 
+Inside this item.py we create our item models
+
+    from db import db
+    class ItemModel(db.Model):
+        __tablename__ = "items" 
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(80), unique=True, nullable=False)
+        price = db.Column(db.Float(precision=2), unique=False, nullable=False)
+        store_id = db.Column(db.Integer, unique=False, nullable=False)
+
+Tells SQLAlchemy we want table items defining all models of class
+Any time we add new model, id will increment automatically
+In the name column:
+    We limit the character count to 80
+    It must have a unique name
+    It can not be an empty string
+
+For our store model, create a new Store.py file in the model directory:
+
+    from db import db 
+    class StoreModel(db.Model):
+        __tablename__ = "stores"
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(80), unique=True, nullable=False)
+
+The id value here, will map to the store_id value in models.items.py 
+
+----------------------------------- One to Many -----------------------------------
+Every item has a store_id, therefore each item has a store associated with it
+However every store can be associated with several items.
+We need to tell SQLAlchemy that store_id is a foreign ey, which we do by:
+
+        store_id = db.Column(db.Integer, db.ForeignKey("stores.id"), unique = False, nullable = False)
+
+We use the tablename (stores) and the column (id) therefore stores.id 
+
+We can also grab a store model object which has the store_id
+
+        store = db.relationship("StoreModel", back_populates="items")
+
+SQLAlchemy knows the stores table is used by the StoreModel class. 
+We can define a relationship with the specific StoreModel object whos id matched store_id 
+back_populates="items" is used so that each StoreModel class can see items that are related to it
+This is done by adding the following in the StoreModels class:
+
+        items = db.relationship("ItemModel", back_populates="store", lazy="dynamic")
+
+Where lazy="dynamic" means the items defined in this StoreModel class are not going to be fetched from db until we tell it to. 
+
+Create a __init__.py file in the models directory
+It is used to iport our models more easily 
+
+    from models.store import StoreModel
+    from models.item import ItemModel 
+
+Make some ammends to the schemas.py file.
+This is because when we create an item or store model there will be a relationshp to something else (a nested object)
+Rename ItemSchema to PlainItemSchema, and remove store_id 
+this will be an ItemSchema that focuses on the item, it will not deal with stores
+We will use it when we want to include a nested item within a store, but don't want store info in the item itself. 
+
+We also rename StoreSchema to PlainStoreSchema 
+
+Then add a ItemSchema:
+
+    class ItemSchema(PlainItemSchema):
+        store_id = fields.Int(required=True, load_only=True)
+        store = fields.Nested(PlainStoreSchema(), dump_only=True)
+
+ItemSchema will inherit all the fields from PlainItemSchema, but add a new column
+Now we can use ItemSchema we can pass in store_id when receiving data from client
+We also have a nested Store, which is only used when returning data to the client 
+
+Also create a StoreSchema that inherits from the PlainStoreSchema.
+
+    class StoreSchema(PlainStoreSchema):
+        items = fields.List(fiels.Nested(PlainItemSchema()), dump_only=True)
+
+----------------------------------- Configure SQLAlchemy -----------------------------------
+Go to app.py add
+
+    from db import db 
+    import models 
+
+With this we now have easy access to our models, for example we could say 
+
+    models.ItemModel 
+
+To easily access our models. 
+Our models need to be imported before configuring SQLAlchemy
+
+We want to create a function in app.py to create, set up and configure the flask app 
+    def create_app():
+We dump all info in there from:
+        app = Flask(__name)
+to
+        api.register_blueprint(StoreBlueprint)
+and we add 
+        return app 
+We also need to setup our database URL in this function
+        app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///data.db")
+This creates a file called data.db where our data is stored 
+REMEMBER to import os in app.py 
+It will first try and access the DATABASE_URL environment variable, and if that fails it will try and acces to sqlite environment variable  
+Give a parameter to your create_app function
+    def create_app(db_url=None)
+We do this so that if there is a specific db url we want to connect to so now ammend:
+        app.config["SQLALCHEMY_DATABASE_URI"] = db.url or os.getenv("DATABASE_URL", sqlite:///data.db")
+Now add another config line 
+        app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False 
+Now add:
+        db.init_app(app)
+Which connects the flask app to SQLAlchemy 
+Now add:
+        with app.app_context():
+            db.create_all()
+So now when we start the app before the first request this creates all tables in our database. If they already exists it wont create them 
+
+Run 
+    flask run 
+In your terminal, and under instance repo you will see data.db 

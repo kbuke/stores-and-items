@@ -1,0 +1,24 @@
+# create new service
+services:
+  web:
+    build: .
+    ports:
+      - "5001:5000"
+      - "5678:5678"
+    volumes:
+      - .:/app
+    command: ["sh", "-c", "pip install debugpy -t /tmp && python /tmp/debugpy --wait-for-client --listen 0.0.0.0:5678 -m flask run --no-debugger --no-reload --host 0.0.0.0 --port 5000"]
+
+
+# this makes web service run, but runs the command to run the flask app for the debugger
+# in terminal
+  # docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+# this allows us to over-ride certain conditions in docker-compose.yml
+# DO NOT EXIT WHAT IS RUNNING IN TERMINAL, IT IS WAITING FOR US TO SET UP DEBUGGER
+# select 
+  # Run and Debug window => create a launch.json file
+  # python debugger
+  # remote attach
+  # 5678
+  # this creates a file:
+    # launch.json 
