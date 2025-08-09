@@ -7,6 +7,12 @@ from flask_smorest import Blueprint, abort
 from schemas import ItemSchema
 from schemas import ItemUpdateSchema
 
+from db import db
+
+from sqlalchemy.exc import SQLAlchemyError
+
+from models import ItemModel
+
 blp = Blueprint("Items", __name__, description="Operations on items")
 
 @blp.route("/item/<string:item_id>")
@@ -45,16 +51,11 @@ class ItemList(MethodView):
     @blp.arguments(ItemSchema)
     @blp.response(201, ItemSchema)
     def post(self, item_data):
-        # item_data is the processed JSON from ItemSchema
-        for item in items.values():
-            if(
-                item_data["name"]==item["name"]
-                and item_data["store_id"] == item["store_id"]
-            ):
-                abort(400, message=f"{item} already exists")
-        if item_data["store_id"] not in stores:
-            abort(404, messaged="Store not found")
-        item_id = uuid.uuid4().hex
-        item = {**item_data, "id": item_id}
-        items[item_id] = item
-        return item, 201
+        item = ItemModel(**item_data)
+
+        try:
+            db.session.add(item)
+            db.session.commit()
+        except SQLAlchemyError:
+            abort(500, message="An error occured when inserting the item.")
+        return item

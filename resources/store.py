@@ -6,6 +6,12 @@ from flask_smorest import Blueprint, abort
 
 from schemas import StoreSchema
 
+from models import StoreModel
+
+from db import db 
+
+from sqlalchemy.exc import SQLAlchemyError
+
 # Blueprints divide an API into multiple segments
 blp = Blueprint("stores", __name__, description="Operations on stores")
 
@@ -36,11 +42,11 @@ class StoreList(MethodView):
     @blp.arguments(StoreSchema)
     @blp.response(201, StoreSchema)
     def post(self, store_data):
-        for store in stores.values():
-            if store_data["name"] == store["name"]:
-                abort(400, message=f"Store already exists")
-        store_id = uuid.uuid4().hex
-        # **store_data will unpack all data currently stored
-        store = {**store_data, "id": store_id}
-        stores[store_id] = store
-        return store, 201
+        store = StoreModel(**store_data)
+
+        try:
+            db.session.add(store)
+            db.session.commit()
+        except SQLAlchemyError:
+            abort(500, message="An error occured when inserting the item.")
+        return store

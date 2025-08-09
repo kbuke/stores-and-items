@@ -143,3 +143,39 @@ So now when we start the app before the first request this creates all tables in
 Run 
     flask run 
 In your terminal, and under instance repo you will see data.db 
+
+----------------------------------- Insert Data Using SQLAlchemy -----------------------------------
+If we go to our resources/item.py file we see our validations.
+
+This is null and void as in our models/item.py we state: 
+
+    class ItemModel(db.Model):
+        __tablename__ = "items"
+
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(80), unique=True, nullable=False)
+        price = db.Column(db.Float(precision=2), unique=False, nullable=False)
+        store_id = db.Column(db.Integer, db.ForeignKey("stores.id"), unique=False, nullable=False)
+        store = db.relationship("StoreModel", back_populates="items")
+
+This sorts our uniqueness and dat-type of the item resource, so we don't really need that part in resources/item.py 
+We can therefore completely refactor our POST request for new items:
+    @blp.arguments(ItemSchema)
+    @blp.response(201, ItemSchema)
+    def post(self, item_data):
+        item = ItemModel(**item_data)
+
+        try:
+            db.session.add(item)
+            db.session.commit()
+        except SQLAlchemyError:
+            abort(500, message="An error occured when inserting item")
+        return item
+
+**item_data turns our paramter item_data into key-word arguments, so any data received from client is turned to a kwargs
+All columns can be passed as kwargs except those with default args (like id)
+Therefore **item_data should include name, price and store_id
+Import ItemModel from models at the top of this file. 
+Import db from db 
+Import SQLAlechmyError from sqlalchemy.exc.exc 
+Commiting saves to the db file
