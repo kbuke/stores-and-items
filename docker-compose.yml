@@ -12,6 +12,9 @@ services:
     # pass current directory and map it to /app in the container
     volumes:
       - .:/app
+    environment:
+      FLASK_APP: app.py
+      FLASK_ENV: development
 
 # then in terminal run:
   # docker compose up

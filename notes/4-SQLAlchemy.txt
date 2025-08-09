@@ -179,3 +179,67 @@ Import ItemModel from models at the top of this file.
 Import db from db 
 Import SQLAlechmyError from sqlalchemy.exc.exc 
 Commiting saves to the db file
+
+We can do the same with adding stores, however there is another except that can occur:
+        except IntegrityError:
+            abort(400, message="A store with this name already exists")
+This is as our store name must be unique
+(IntegrityError is also imported from sqlalchemy.exc)
+
+----------------------------------- GET Models of 404 -----------------------------------
+Use model classes to interact and rereive data.
+In the Item => get function we say:
+
+    @blp.route("/item/<string:item_id>")
+    class Item(MethodView):
+        @blp.response(200, ItemSchema)
+        def get(self, item_id):
+            item = ItemModel.query.get_or_404(item_id)
+            return item
+
+This retireves item from db using items primary key 
+If no item with primary key in db it auto aborts with a 404 status-code. 
+
+This works similar with the delete and put functions:
+        def delete(self, item_id):
+            item = ItemModel.query.get_or_404(item_id)
+            raise NotImplementedError("Deleting an item is not implemented)
+
+----------------------------------- Update Models -----------------------------------
+We want to implement a idempotent request, meaning one or 10 requests should result in same state at the end
+This ensures client can't mess up by sending more than one request 
+This is what we use PUT requests
+
+This states that if item does exist we only need name and price to be passed
+If it doesnt exist we need price, name and store_id to be passed which our API will habndle
+
+We update the ItemUpdateSchema to reflect this by:
+
+Remember to add and commit the new item
+
+----------------------------------- Retrieve All Models -----------------------------------
+Simple, just enter 
+    return ItemModel.query.all()
+And do same for stores, this returns all items and stores
+This is thanks to the many=all parameter.
+
+----------------------------------- Delete Models -----------------------------------
+To delete a model just put:
+        item = ItemModel.query.get_or_404(item_id)
+        db.session.delete(item)
+        db.session.commit()
+        return {"message": "Item deleted"}
+
+----------------------------------- Cascades (Delete Models) -----------------------------------
+Foreign Key constraints are not implemented
+In this example that means we can create an item that with a store_id that doesnt exist
+(This is with SQLAlchemy), PostgreSQL will not allow this
+
+If we delete a store that has an item in, SQLAlchemy will not allow this. 
+This is because the foreign_key is set to nullable equals false 
+So we do the following; by deleting the store, the items are deleted too 
+So we want to delete the children when we delete the parent
+We use alter the models/store.py file with the following:
+
+        items = db.relationship("ItemModel", back_populates="store", lazy="dynamic", cascade="all, delete, delete-orphan")
+
