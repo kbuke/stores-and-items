@@ -1,0 +1,211 @@
+----------------------------------- Intro -----------------------------------
+use example of tags, which are used by online stores to group items to help search 
+One store can have many items, and items could have several tags
+    chair could have tags of furntiure and office
+    laptop could have tags of office and tech 
+Here a tag can belong to many items, and items can have many tags
+
+Tags are unique to each store, defined on the store, and use them on items
+Each store will have many tags, ie a one-to-many relationship
+
+We need to add a few api endpoints 
+
+----------------------------------- One to Many Relationship Between Store and Tag -----------------------------------
+Create a new model tag.py 
+    from db import db 
+
+    class TagModel(db.Model):
+        __tablename__ = "tags"
+
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(80), nullable=False, unique=True)
+        store_id = db.Column(db.Integer, db.ForeignKey("stores.id"), nullable=False)
+
+        store = db.relationship("StoreModel", back_populates="tags")
+
+Then make sure we make some changes to StoreModel to define the relationship with tags
+
+        tags = db.relationship("TagModel", back_populates="store", lazy="dynamic")
+
+We need to ensure the back_populates = "store" is the same store defined on line 24
+REMEMBER by putting lazy="dynamic" we would get all tag information, ie two queries running. If you use relationship constantly may be best to remove
+
+Add:
+    PlainTagsSchema(Schema):
+        id = fields.Int(dump_only=True)
+        name = fields.Str()
+NOTE check all id's are ints and NOT strings
+
+Edit StoreSchema:
+        tags = fields.List(fields.Nested(PlainTagsSchema()), dump_only=True)   
+
+Create TagSchema:
+    class TagSchema(PlainTagsSchema):
+        store_id = fields.Int(load_only=True)
+        store = fields.Nested(PlainStoreSchema(), dump_only=True)
+
+Import TagModel in __init__.py 
+
+Then add api endpoints in our models, by creating resources/tag.py 
+
+    from db import db 
+    from models import TagModel, StoreModel
+    from schemas import TagSchema
+
+    from flask.views import MethodView
+    from flask_smorest import Blueprint, abort
+
+    from sqlalchemy.exc import SQLAlchemyError
+    
+    blp = Blueprint("Tags", "tags", description="Operations on tags")
+
+    @blp.route("/store/<string:store_id>/tag")
+    class TagsInStore(MethodView):
+        @blp.response(200, TagSchema(many=True))
+        def get(self, store_id):
+            store = StoreModel.query.get_or_404(store_id)
+            return store.tags.all()
+    
+        @blp.arguments(TagSchema)
+        @blp.response(201, TagSchema)
+        def post(self, tag_data, store_id):
+            # if TagModel.query.filter(TagModel.store_id == store_id, TagModel.name == tag_data["name"]).first():
+                # abort(400, message="A tag with that name already exists in this store")
+            tag = TagModel(**tag_data, store_id=store_id)
+
+            try:
+                db.session.add(tag)
+                db.session.commit()
+            except SQLAlchemyError as e:
+                abort(500, message=str(e))
+            
+            return tag 
+
+Lines 65 and 66 exist if we wanted to change line 21 to not have a unique value.
+It may be good to allow tags with same name to show up, as long as they are not part of the same store
+
+Then get info for specific tag
+
+Then register in app.py:
+    from resources.tag import blp as TagBlueprint
+    ...
+        api.register_blueprint(TagBlueprint)
+
+----------------------------------- Many to Many Relationships -----------------------------------
+Create a secondary table between tags and items so that tags can belong to many items and vice versa.
+The secondary table will ensure a specific tag can be lined to a specific item 
+
+Go to models and create item_tags.py to define the secondary tabke
+
+    from db import db
+
+    class ItemTags(db.Model):
+        __tablename__ = "items_tags"
+
+        id = db.Column(db.Integer, primary_key=True)
+        item_id = db.Column(db.Integer, db.ForeignKey("items.id"))
+        tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"))
+
+Here we define both sides of the relationship.
+
+Add the table to your init.py
+
+    from models.item_tags import ItemTags
+
+Then we wish to connect our ItemTags table with our Item and Tag tables
+
+    from db import db
+
+    class TagModel(db.Model):
+        __tablename__ = "tags"
+
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(80), nullable=False)
+        store_id = db.Column(db.Integer, db.ForeignKey("stores.id"), unique=False, nullable=False)
+
+        store = db.relationship("StoreModel", back_populates="tags")
+        items = db.relationship("ItemModel", back_populate="tags", secondary="items_tags")
+
+We reference the secondary table in the secondary header, using the table name (items_tags")
+It knows to go through the secondary table to look at which to connect. 
+
+We do the same with Items.py table
+
+Add the following to schea.py
+
+    class ItemSchema(PlainItemSchema):
+        store_id = fields.Int(required=True, load_only=True)
+        store = fields.Nested(PlainStoreSchema(), dump_only=True)
+        tags = fields.List(fields.Nested(PlainTagSchema()), dump_only=True)
+    
+    class TagSchema(PlainTagSchema):
+        store_id = fields.Int(load_only=True)
+        store = fields.Nested(PlainStoreSchema(), dump_only=True)
+        items = fields.List(fields.Nested(PlainItemSchema()), dump_only=True)
+    
+    class TagAndItemShcema(Schema):
+        message = fields.Str()
+        item = fields.Nested(ItemSchema)
+        tag = fields.Nested(TagSchema)
+
+The last one returns info about tag and item that are related.
+
+Use endpoints to link items to tags, unlink them and delete tag
+
+In our resource/tag.py folder, add:
+
+    from models import TagModel, StoreModel, ItemModel
+    from schemas import TagSchema, TagAndItemShcema
+
+    @blp.route("/item/<string:item_id>/tag/<string:tag_id>")
+    class LinkTagsToItem(MethodView):
+        @blp.response(201, TagSchema)
+        def post(self, item_id, tag_id):
+            item = ItemModel.query.get_or_404(item_id)
+            tag = TagModel.query.get_or_404(tag_id)
+
+            try:
+                db.session.add(item)
+                db.session.commit()
+            except SQLAlchemyError:
+                abort(500, message="An error occured while inserting the tag")
+            return tag 
+        
+        @blp.response(200, TagAndItemShcema)
+        def delete(self, item_id, tag_id):
+            item = ItemModel.query.get_or_404(item_id)
+            tag = TagModel.query.get_or_404(store_id)
+
+            item.tags.remove(tag)
+
+            try:
+                db.session.add(item)
+                db.session.commit()
+            except SQLAlchemyError:
+                abort(500, message="An error occured while inserting the tag.")
+            return {"message": "Item removed from tag", "item": item, "tag": tag}
+
+These examples connect and delete a tags connection with an item, and vice versa
+
+Now we try and delete a tag.
+
+    @blp.route("/tag/<string:tag_id>")
+    class Tag(MethodView):
+        @blp.response(200, TagSchema)
+        def get(self, tag_id):
+            tag = TagModel.query.get_or_404(tag_id)
+            return tag
+
+        @blp.response(202, description="Delete a tag if no item is tagged", example="{"message": "Tag deleted"})
+        @blp.alt_response(404, description="Tag not found")
+        def delete(self, tag_id):
+            tag = TagModel.query.get_or_404(tag_id)
+
+            if not tag.items:
+                db.session.delete(tag)
+                db.session.commit()
+                return {"message": "Tag deleted"}
+            abort(400, message="Could not delete tag. Make sure tag is not associated with any of the items, then try again. )
+
+
+alt_response() is used to include more info specifically documenting alternate responses other than main responses.

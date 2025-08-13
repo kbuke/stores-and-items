@@ -210,12 +210,33 @@ We want to implement a idempotent request, meaning one or 10 requests should res
 This ensures client can't mess up by sending more than one request 
 This is what we use PUT requests
 
+        item = ItemModel.query.get(item_id)
+        if item:
+            item.price = item_data["price"]
+            item.name = item_data["name"]
+        else:
+            item = ItemModel(id=item_id, **item_data)
+        db.session.add(item)
+        db.session.commit()
+        return item
+
 This states that if item does exist we only need name and price to be passed
-If it doesnt exist we need price, name and store_id to be passed which our API will habndle
+If it doesnt exist we need price, name and store_id to be passed which our API will handle
+We need to go to our ItemUpdateSchema and add a store_id category like so:
+
+    store_id = fields.Int()
+
+As a PUT request is used to update or create an item by trying to update an item that doesnt exist, we ensure that nothing is created.
+We do this as we do not pass in a store_id which is invalid on our models/item.oy file
+May be best to create a PATCH request instead for efficiency.
+
+Showing that it is not required, but if it isn't then we will receive an error due to it being labeled nullable=False in our models. 
 
 We update the ItemUpdateSchema to reflect this by:
 
 Remember to add and commit the new item
+
+We don't use get_or_404  
 
 ----------------------------------- Retrieve All Models -----------------------------------
 Simple, just enter 
